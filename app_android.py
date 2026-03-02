@@ -4,12 +4,11 @@ from PIL import Image
 import json
 import urllib.parse
 
-# 1. Configurazione API Gemini (legge la chiave in modo sicuro da Streamlit Cloud)
+# Configurazione API Gemini
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 def analizza_biglietto(immagine):
-    """Invia l'immagine a Gemini chiedendo ESATTAMENTE i 6 campi richiesti."""
-    # Modello aggiornato per risolvere l'errore 404
+    """Invia l'immagine a Gemini chiedendo i 7 campi richiesti (incluso indirizzo)."""
     model = genai.GenerativeModel('gemini-2.5-flash')
     
     prompt = """
@@ -20,7 +19,8 @@ def analizza_biglietto(immagine):
         "azienda": "Nome dell'azienda",
         "cellulare": "Numero di cellulare",
         "telefono_ufficio": "Numero di telefono fisso/ufficio",
-        "email": "Indirizzo email"
+        "email": "Indirizzo email",
+        "indirizzo": "Indirizzo completo (via, numero civico, CAP, città, provincia)"
     }
     Se un dato non è presente, lascia la stringa vuota "".
     """
@@ -29,8 +29,8 @@ def analizza_biglietto(immagine):
     testo_risposta = response.text.replace('```json', '').replace('```', '').strip()
     return json.loads(testo_risposta)
 
-def genera_vcard(nome, cognome, azienda, cellulare, tel_ufficio, email):
-    """Genera la vCard. Su Android, separare Nome e Cognome aiuta l'ordinamento in rubrica."""
+def genera_vcard(nome, cognome, azienda, cellulare, tel_ufficio, email, indirizzo):
+    """Genera la vCard. Il campo ADR;TYPE=WORK è quello letto da Maps su Android."""
     vcard = f"""BEGIN:VCARD
 VERSION:3.0
 N:{cognome};{nome};;;
@@ -39,6 +39,7 @@ ORG:{azienda}
 TEL;TYPE=CELL:{cellulare}
 TEL;TYPE=WORK,VOICE:{tel_ufficio}
 EMAIL;TYPE=WORK:{email}
+ADR;TYPE=WORK:;;{indirizzo};;;;
 END:VCARD"""
     return vcard
 
@@ -49,7 +50,7 @@ st.set_page_config(page_title="Scanner Contatti", page_icon="📱", layout="cent
 st.title("📱 Aggiungi Contatto")
 st.write("Fai tap per caricare la foto o scattarne una nuova.")
 
-# Acquisizione Immagine - Solo uploader (Su Android apre il prompt "Fotocamera o File")
+# Acquisizione Immagine - Solo uploader
 file_caricato = st.file_uploader("Scegli immagine", type=["jpg", "png", "jpeg"])
 
 if file_caricato:
@@ -71,6 +72,7 @@ if 'dati_android' in st.session_state:
     nome = st.text_input("Nome", value=d.get("nome", ""))
     cognome = st.text_input("Cognome", value=d.get("cognome", ""))
     azienda = st.text_input("Azienda", value=d.get("azienda", ""))
+    indirizzo = st.text_input("Indirizzo", value=d.get("indirizzo", ""))
     cellulare = st.text_input("Cellulare", value=d.get("cellulare", ""))
     tel_ufficio = st.text_input("Telefono Ufficio", value=d.get("telefono_ufficio", ""))
     email = st.text_input("Email", value=d.get("email", ""))
@@ -78,7 +80,7 @@ if 'dati_android' in st.session_state:
     st.divider()
     
     # --- AZIONE 1: RUBRICA ---
-    vcard_str = genera_vcard(nome, cognome, azienda, cellulare, tel_ufficio, email)
+    vcard_str = genera_vcard(nome, cognome, azienda, cellulare, tel_ufficio, email, indirizzo)
     nome_file = f"{nome}_{cognome}.vcf".replace(" ", "")
     
     st.download_button(
@@ -95,8 +97,7 @@ if 'dati_android' in st.session_state:
     destinatario = st.text_input("Invia copia a:", placeholder="indirizzo@email.it")
     
     oggetto_email = f"Contatto: {nome} {cognome} - {azienda}"
-    # Formattazione email asciutta e diretta
-    corpo_email = f"Nuovo contatto:\n\nNome: {nome} {cognome}\nAzienda: {azienda}\nCellulare: {cellulare}\nUfficio: {tel_ufficio}\nEmail: {email}"
+    corpo_email = f"Nuovo contatto:\n\nNome: {nome} {cognome}\nAzienda: {azienda}\nIndirizzo: {indirizzo}\nCellulare: {cellulare}\nUfficio: {tel_ufficio}\nEmail: {email}"
     
     oggetto_url = urllib.parse.quote(oggetto_email)
     corpo_url = urllib.parse.quote(corpo_email)
