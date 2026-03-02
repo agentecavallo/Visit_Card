@@ -9,7 +9,8 @@ genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 def analizza_biglietto(immagine):
     """Invia l'immagine a Gemini chiedendo ESATTAMENTE i 6 campi richiesti."""
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # Modello aggiornato per risolvere l'errore 404
+    model = genai.GenerativeModel('gemini-2.5-flash')
     
     prompt = """
     Estrai i dati da questo biglietto da visita e restituisci SOLO un JSON valido con queste chiavi. Non aggiungere markdown o altro testo:
@@ -46,22 +47,20 @@ END:VCARD"""
 st.set_page_config(page_title="Scanner Contatti", page_icon="📱", layout="centered")
 
 st.title("📱 Aggiungi Contatto")
+st.write("Fai tap per caricare la foto o scattarne una nuova.")
 
-# Acquisizione Immagine
-foto_scattata = st.camera_input("Scatta foto al biglietto")
-file_caricato = st.file_uploader("O carica dalla galleria", type=["jpg", "png"])
+# Acquisizione Immagine - Solo uploader (Su Android apre il prompt "Fotocamera o File")
+file_caricato = st.file_uploader("Scegli immagine", type=["jpg", "png", "jpeg"])
 
-immagine_da_analizzare = foto_scattata or file_caricato
-
-if immagine_da_analizzare:
-    img = Image.open(immagine_da_analizzare)
+if file_caricato:
+    img = Image.open(file_caricato)
     
     if st.button("✨ ESTRAI DATI", type="primary", use_container_width=True):
         with st.spinner("Analisi in corso..."):
             try:
                 dati = analizza_biglietto(img)
                 st.session_state['dati_android'] = dati
-                st.success("Dati estratti!")
+                st.success("Dati estratti con successo!")
             except Exception as e:
                 st.error(f"Errore di lettura. Riprova. Dettagli: {e}")
 
@@ -96,7 +95,7 @@ if 'dati_android' in st.session_state:
     destinatario = st.text_input("Invia copia a:", placeholder="indirizzo@email.it")
     
     oggetto_email = f"Contatto: {nome} {cognome} - {azienda}"
-    # Stile email asciutto e diretto
+    # Formattazione email asciutta e diretta
     corpo_email = f"Nuovo contatto:\n\nNome: {nome} {cognome}\nAzienda: {azienda}\nCellulare: {cellulare}\nUfficio: {tel_ufficio}\nEmail: {email}"
     
     oggetto_url = urllib.parse.quote(oggetto_email)
